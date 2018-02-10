@@ -33,5 +33,31 @@ tags = defaultdict(int, {
     "0x9d551f41fed6fc27b719777c224dfecce170004d": 3,  # ethereumpool
     "0xd1e56c2e765180aa0371928fd4d1e41fbcda34d4": 3,  # weipool
     "0xf3b9d2c81f2b24b0fa0acaaa865b7d9ced5fc2fb": 3,  # bitclubpool
-    "0xb2930b35844a230f00e51431acae96fe543a0347": 3  # mininggpoolhub
+    "0xb2930b35844a230f00e51431acae96fe543a0347": 3,  # mininggpoolhub
+    "0xe853c56864a2ebe4576a807d26fdc4a0ada51919": 1,  # Kraken_3
+    "0xfbb1b73c4f0bda4f67dca266ce6ef42f520fbb98": 1,  #Bittrex
+    "0xde0b295669a9fd93d5f28d9ec85e40f4cb697bae": 5,  #ETHDEV
+    "0x3f5ce5fbfe3e9af3971dd833d26ba9b5c936f0be": 1, #Binance
+    "0xc78310231aa53bd3d0fea2f8c705c67730929d8f": 4, #singularDTV
+    "0x267be1c1d684f78cb4f6a176c4911b741e4ffdc0": 1, #Kraken_4
+    "0x0a869d79a7052c7f1b55a8ebabbea3420f0d1e13": 1, #Kraken_2
+    "0x4fdd5eb2fb260149a3903859043e962ab89d8ed4": 1, #Bitfinex_3
+    "0xB3764761E297D6f121e79C32A65829Cd1dDb4D32": 6, #SCAAAAM HACKER
+    "0x6a164122d5cf7c840d26e829b46dcc4ed6c0ae48": 6,  #FAKE_Coindash SCAM
+    "0xD4914762f9BD566Bd0882B71af5439c0476D2Ff6": 6,  #HACK
+    "0x1342A001544B8b7ae4a5d374e33114C66d78bd5f": 6,  #HACK2
+    "0x2910543Af39abA0Cd09dBb2D50200b3E800A63D2": 1,  #KRAKEN_1
+    "0x8271b2e8cbe29396e9563229030c89679b9470db": 1,  #liqui.io
+    "0x876eabf441b2ee5b5b0554fd502a8e0600950cfa": 1,  #Bitfinex_4
+    "0xab7c74abc0c4d48d1bdad5dcb26153fc8780f83e": 2,   #Bitfinex 2?
+    "0xB2D7e6CD1b25F591e2E630Ba65DAC638e6cd4C8e": 8, # ETHDEV. Mined first Blocks 90000?
+    "0x536c2622748118a82bc9fb15a450d828966d9761": 9, # FORK CONTRACT:O
+    "0x53d284357ec70cE289D6D64134DfAc8E511c8a3D": 1,  #Exchange (Polo or Kraken)
+    "0xf4B51B14b9EE30dc37EC970B50a486F37686E2a8": 1 , #bitfinex Cold + ERC TOKENS
+    "0x281055afc982d96fab65b3a49cac8b878184cb16": 7,# MAYBE SCAM, weird INS
+    "0x6f46cf5569aefa1acc1009290c8e043747172d89": 7, # same weirst SHIT
+    "0x90e63c3d53e0ea496845b7a03ec7548b70014a91": 7, #same weird Stuff
+    "0x61EDCDf5bb737ADffE5043706e7C5bb1f1a56eEA": 1, #Gemini Cold Wallet
+    "0xf1ce0a98efbfa3f8ebec2399847b7d88294a634e": 1, #Bitfinex Cold Wallet
+
 })

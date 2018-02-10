@@ -3,6 +3,7 @@
 import subprocess
 import sys
 sys.path.append("./../Preprocessing")
+sys.path.append("./../Preprocessing/Crawler")
 sys.path.append("./../Analysis")
 import os
 os.environ['ETH_BLOCKCHAIN_ANALYSIS_DIR'] = './../Preprocessing/'
@@ -13,21 +14,12 @@ import time
 LOGDIR = "./../Preprocessing/logs"
 
 
-subprocess.call([
-    "(geth --rpc --rpcport 8545 > {}/geth.log 2>&1) &".format(LOGDIR),
-    "(mongod --dbpath mongo/data --port 27017 > {}/mongo.log 2>&1) &".format(LOGDIR)
-], shell=True)
-
-print("Booting processes.")
+#print("Booting processes.")
 # Catch up with the crawler
 c = Crawler.Crawler()
 
 print("Updating contract hash map.")
 # Update the contract addresses that have been interacted with
-ContractMap(c.mongo_client, last_block=c.max_block_mongo)
+#ContractMap(c.mongo_client, last_block=c.max_block_mongo)
 
 print("Update complete.")
-subprocess.call([
-    "(geth --rpc --rpcport 8545 > {}/geth.log 2>&1) &".format(LOGDIR),
-    "(mongod --dbpath mongo/data --port 27017 > {}/mongo.log 2>&1) &".format(LOGDIR)
-], shell=True)

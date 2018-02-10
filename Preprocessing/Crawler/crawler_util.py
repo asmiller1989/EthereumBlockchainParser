@@ -4,8 +4,8 @@ from collections import deque
 import os
 import pdb
 
-DB_NAME = "blockchain"
-COLLECTION = "transactions"
+DB_NAME = "blockchainExtended2"
+COLLECTION = "blocks"
 
 # mongodb
 # -------
@@ -53,6 +53,14 @@ def insertMongo(client, d):
     """
     try:
         client.insert_one(d)
+        return None
+    except Exception as err:
+        pass
+
+
+def insertMiner(client, n,miner):
+    try:
+        client.update_one({"number":n},{"$set":{"miner":miner}})
         return None
     except Exception as err:
         pass
@@ -149,10 +157,18 @@ def decodeBlock(block):
         if "result" in block:
             b = block["result"]
         # Filter the block
+
+
         new_block = {
             "number": int(b["number"], 16),
-            "timestamp": int(b["timestamp"], 16),		# Timestamp is in unix time
-            "transactions": []
+            "miner": b["miner"],
+            "timestamp": int(b["timestamp"], 16),
+            "difficulty": int(b["difficulty"], 16),
+            "gasLimit": int(b["gasLimit"], 16),
+            "gasUsed": int(b["gasUsed"], 16),
+            "size": int(b["size"], 16),
+            "totalDifficulty": b["totalDifficulty"],
+            "transactions": [],
         }
         # Filter and decode each transaction and add it back
         # 	Value, gas, and gasPrice are all converted to ether
@@ -161,7 +177,10 @@ def decodeBlock(block):
                 "from": t["from"],
                 "to": t["to"],
                 "value": float(int(t["value"], 16))/1000000000000000000.,
-                "data": t["input"]
+                "input": t["input"],
+                "gas": t["gas"],
+                "gasPrice": t["gasPrice"],
+                "nonce":t["nonce"]
             }
             new_block["transactions"].append(new_t)
         return new_block

@@ -5,9 +5,13 @@ import requests
 import json
 import pickle
 import os
+from ethereum.utils import encode_hex
+from ethereum.utils import mk_contract_address
 import time
 import pymongo
+
 DIR = "."
+
 
 class ContractMap(object):
     """
@@ -40,16 +44,17 @@ class ContractMap(object):
     """
 
     def __init__(self,
-                mongo_client=None,
-                last_block=0,
-                load=False,
-                filepath="{}/.contracts.p".format(DIR)):
+                 mongo_client=None,
+                 last_block=0,
+                 load=False,
+                 filepath="{}/.contracts.p".format(DIR)):
         """Initialize with a mongo client and an optional last block."""
         self.client = mongo_client
         self.last_block = last_block
         self.url = "http://localhost:8545"
         self.headers = {"content-type": "application/json"}
         self.filepath = filepath
+        self.session = requests.Session()
 
         self.addresses = defaultdict(int)
 
@@ -76,13 +81,11 @@ class ContractMap(object):
             "jsonrpc": "2.0",
             "id": 0
         }
-
-        res = requests.post(self.url,
-            data=json.dumps(payload),
-            headers=self.headers).json()
+        res = self.session.post(self.url,
+                            data=json.dumps(payload),
+                            headers=self.headers, stream=True).json()
 
         # Geth will sometimes crash if overloaded with requests
-        time.sleep(0.005)
 
         return res[key]
 
@@ -94,29 +97,51 @@ class ContractMap(object):
         Append them to self.addresses if found.
         """
         blocks = self.client.find(
-            {"number": {"$gt": self.last_block}},
-            sort=[("number", pymongo.ASCENDING)]
-        )
+            {"number": {"$lt": 4370000}}
+        ).sort("number", 1 )
         counter = 0
         for block in blocks:
             if block["transactions"]:
                 # Loop through all of the transactions in the current block
                 # Add all the nodes to a global set (self.nodes)
                 for txn in block["transactions"]:
-                    if txn["to"] and not self.addresses[txn["to"]]:
-                        # Get the code at the "to" address.
-                        code = self._rpcRequest(
-                            "eth_getCode",
-                            [txn["to"], "latest"],
-                            "result")
-                        # Add addressees if there is non-empty data
-                        if code != "0x":
-                            self.addresses[txn["to"]] = 1
+                    if txn["to"] == None:
+                        ts = self._rpcRequest("eth_getBlockByNumber", [hex(block["number"]), True], "result")["transactions"]
 
+                        notFound =True
+                        counter2 = 0
+                        while(notFound):
+                            t=ts[counter2]
+                            if txn["from"] == t["from"] and txn["to"] == t["to"] and txn["input"] == t["input"] and txn[
+                                "gas"] == t["gas"] and txn["gasPrice"] == t["gasPrice"] and not "used" in t:
+                                txn["nonce"] = t["nonce"]
+                                to = "0x" + encode_hex(mk_contract_address(txn["from"], int(txn["nonce"], 16)))
+                                self.addresses[to] = 3
+                                ts[counter2]["used"]=True
+                                notFound=False
+                            counter2 += 1
+
+                        #for t in ts:
+                        #    if not "nonce" in txn:
+                        #        if txn["from"] == t["from"] and txn["to"] == t["to"] and txn["input"] == t["input"] and txn["gas"] == t["gas"] and txn["gasPrice"] == t["gasPrice"]:
+                        #            txn["nonce"] = t["nonce"]
+                        #            to = "0x" + encode_hex(mk_contract_address(txn["from"], int(txn["nonce"], 16)))
+                        #            self.addresses[to] = 3
+                    elif not self.addresses[txn["to"]]:
+                        self.addresses[txn["to"]] = 1
+                    if not self.addresses[txn["from"]]:
+                       self.addresses[txn["from"]] = 2
+
+            if not self.addresses[block["miner"]]:
+                self.addresses[block["miner"]] = 4
             self.last_block = block["number"]
             counter += 1
             # Save the list every 10000 blocks in case geth crashes
             # midway through the procedure
+            if "uncles" in block:
+                for uncle in block["uncles"]:
+                    if not self.addresses[uncle["miner"]]:
+                        self.addresses[uncle["miner"]] = 5
             if not counter % 10000:
                 print("Done with block {}...".format(self.last_block))
                 self.save()
@@ -125,6 +150,7 @@ class ContractMap(object):
         """Pickle the object and save it to a file."""
         state = (self.last_block, self.addresses)
         pickle.dump(state, open(self.filepath, "wb"))
+        print(self.addresses.__len__())
 
     def load(self):
         """Load the contract map from a  file."""

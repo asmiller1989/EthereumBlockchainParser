@@ -1,5 +1,9 @@
-from ChainAnalysis.TxnGraph import TxnGraph
+
+import sys
+sys.path.append("./../Analysis")
 import os
+os.environ['ETH_BLOCKCHAIN_ANALYSIS_DIR'] = './../Analysis/'
+from TxnGraph import TxnGraph
 import multiprocessing
 
 # Build and snap a graph based on a tuple of form (start_block, end_block)
@@ -14,7 +18,7 @@ def build(blocks, old_graph):
     else:
         previous = None
     tmp = TxnGraph(blocks[0], blocks[1], previous=previous)
-    tmp.draw()
+    #tmp.draw()
     return tmp.graph, blocks[1]
 
 
@@ -24,12 +28,12 @@ if __name__=="__main__":
     # Take a bunch of snapshots based on the resolution.
     # Between each snapshot, pass the previous graph object and the previous
     # end_block number as the start_block in the new snapshot.
-    resolution = 100000
+    resolution = 4369999
 
-    block_max = 1000000
+    block_max = 4369999
     tmp_graph = None
     tmp_last_block = 0
     for i in range(block_max//resolution):
         tmp_graph, tmp_last_block = build(
-            (tmp_last_block, resolution*i), tmp_graph
+            (tmp_last_block, resolution*(i+1)), tmp_graph
         )

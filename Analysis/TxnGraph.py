@@ -2,12 +2,14 @@
 
 import six.moves.cPickle as pickle
 from graph_tool.all import *
+import graph_tool
 import pymongo
 import os
 import subprocess
 import signal
 import copy
 from tags import tags
+
 import analysis_util
 env = analysis_util.set_env()
 DIR = env["mongo"] + "/data"
@@ -85,6 +87,11 @@ class TxnGraph(object):
         self.f_graph = None
         # PropertyMap of edges weighted by eth value of transaction
         self.edgeWeights = None
+
+        #PropertyMap of edges weghted by dollarValue of transaction
+
+        self.edgeDollarValue = None
+
         # PropertyMap of vertices weighted by eth value they hold
         # at the time of the end_block.
         self.vertexWeights = None
@@ -111,6 +118,7 @@ class TxnGraph(object):
         # Set filepaths
         self._setFilePaths()
 
+        print(DATADIR)
         # Load a previous graph
         if load:
             self.load(self.start_block, self.end_block)
@@ -141,18 +149,18 @@ class TxnGraph(object):
             # Try a connection to mongo and force a findOne request.
             # See if it makes it through.
             client = pymongo.MongoClient(serverSelectionTimeoutMS=1000)
-            transactions = client["blockchain"]["transactions"]
+            transactions = client["blockchainExtended2"]["blocks"]
             test = client.find_one({"number": {"$gt": 1}})
             popen = None
         except Exception as err:
             # If not, open up a mongod subprocess
             cmd = "(mongod --dbpath {} > {}/mongo.log 2>&1) &".format(
-                os.environ["BLOCKCHAIN_MONGO_DATA_DIR"],
-                os.environ["BLOCKCHAIN_ANALYSIS_LOGS"])
+                "/mnt/c/data/db",
+                "/mnt/c/data/anaLogs")
 
             popen = subprocess.Popen(cmd, shell=True)
             client = pymongo.MongoClient(serverSelectionTimeoutMS=1000)
-            transactions = client["blockchain"]["transactions"]
+            transactions = client["blockchainExtended2"]["blocks"]
 
         # Update timestamps
         transactions = self._updateTimestamps(transactions)
@@ -163,8 +171,9 @@ class TxnGraph(object):
         """Lookup timestamps associated with start/end blocks and set them."""
         start = client.find_one({"number": self.start_block})
         end = client.find_one({"number": self.end_block})
-        self.start_timestamp = start["timestamp"]
-        self.end_timestamp = end["timestamp"]
+        #TODO stuff
+        self.start_timestamp =  "xx"
+        self.end_timestamp = "xx"
         return client
 
     def _addEdgeWeight(self, newEdge, value):
@@ -194,7 +203,68 @@ class TxnGraph(object):
         else:
             self.vertexWeights[from_v] = 0
 
+    def _addVertieces(self):
+
+        addresses = pickle.load(open(".addresses.p", "rb"))
+        for addr in addresses.keys():
+            self.nodes[addr] = self.graph.add_vertex()
+            self.vertexWeights[self.nodes[addr]] = 1
+            self.addresses[self.nodes[addr]] = addr
+
+
+    def _addDollarPricesToBlocks(self,client):
+
+        blocks = client.find(
+            {"number": {"$gt": 0, "$lt": 4370000}},
+            sort=[("number", pymongo.ASCENDING)]
+        )
+
+        import json
+
+        with open('dollarPrice.json') as data_file:
+            data = json.load(data_file)
+
+        prices = []
+        for i in data:
+            prices.append([i["date"], i["close"]])
+
+        date = 0
+        for block in blocks:
+
+            if int(prices[date][0]) < int(block["timestamp"]):
+                date += 1
+
+            print(block["number"])
+            print(prices[date][1])
+            client.update({"number": block["number"]}, {"$set": {"dollarPrice": prices[date][1]}}, upsert=False)
+
+    def _addEdges(self, client):
+        blocks = client.find(
+            {"number": {"$gt": 0, "$lt": 4370000}},
+            sort=[("number", pymongo.ASCENDING)]
+        )
+
+        for block in blocks:
+
+
+            for txn in block["transactions"]:
+                if txn["to"] != None:
+                    toV = self.nodes[txn["to"]]
+                    fromV = self.nodes[txn["from"]]
+                    newEdge = self.graph.add_edge(fromV,toV)
+                    self.edges.append(newEdge)
+                    self._addEdgeWeight(newEdge,txn["value"])
+
+        self._addPropertyMaps()
+
+
+        print(graph_tool.centrality.pagerank(self.graph))
+
+
+
+
     def _addBlocks(self, client, start, end):
+
         """Add new blocks to current graph attribute."""
         # Get a cursor containing all of the blocks
         # between the start/end blocks
@@ -203,6 +273,37 @@ class TxnGraph(object):
             sort=[("number", pymongo.ASCENDING)]
         )
         for block in blocks:
+            print(block["number"])
+            if "uncles" in block:
+                for uncle in block["uncles"]:
+                    to_v = None
+                    from_v = None
+                    #if uncle["miner"] not in self.nodes:
+                    #    to_v = self.graph.add_vertex()
+                    #    self.nodes[uncle["miner"]] = to_v
+                    #    self.addresses[to_v] = uncle["miner"]
+                    #else:
+                    #    to_v = self.nodes[uncle["miner"]]
+
+                    to_v = self.graph.add_vertex()
+
+                    if "uncle" not in self.nodes:
+                        from_v = self.graph.add_vertex()
+                        self.nodes["uncle"] = from_v
+                        self.addresses[from_v] = "uncle"
+                    else:
+                        from_v = self.nodes["uncle"]
+
+                    # Graph vetices will be referenced temporarily, but the
+                    #   unique addresses will persist in self.nodes
+                    #to_v = self.graph.add_vertex()
+
+                    newEdge = self.graph.add_edge(from_v, to_v)
+                    self.edges.append(newEdge)
+                    if uncle["reward"] >5:
+                        self._addEdgeWeight(newEdge,10.0-uncle["reward"]) #if >5
+                    else:
+                        self._addEdgeWeight(newEdge,uncle["reward"])
             if block["transactions"]:
                 # Loop through all of the transactions in the current block
                 # Add all the nodes to a global set (self.nodes)
@@ -214,7 +315,8 @@ class TxnGraph(object):
                     from_v = None
 
                     # Exclude self referencing transactions
-                    if txn["to"] == txn["from"]:
+                    #TODO Do something with self refencing e.g. search for text
+                    if txn["to"] == txn["from"]: #and txn["input"] != "0x":
                         continue
 
                     # Set the "to" vertex
@@ -252,6 +354,8 @@ class TxnGraph(object):
         self.graph.vertex_properties["weight"] = self.vertexWeights
         self.graph.vertex_properties["address"] = self.addresses
         self.graph.edge_properties["weight"] = self.edgeWeights
+        self.graph.edge_properties["dollarValue"] = self.edgeDollarValue
+
 
     # PUBLIC
     # ------
@@ -283,12 +387,19 @@ class TxnGraph(object):
         self.addresses = self.graph.new_vertex_property("string")
 
         # Add blocks to the graph
-        self._addBlocks(client, self.start_block, self.end_block)
+        self._addVertieces()
+        print("Added Vertieces")
+        self._addEdges(client)
+        print("Added Edges")
 
+        #self._addDollarPricesToBlocks(client)
+        #self._addBlocks(client, self.start_block, self.end_block)
+        #print("Added Blocks")
         # Kill the mongo client if it was spawned in this process
-        if popen:
+        #if popen:
             # TODO get this to work
-            popen.kill()
+            #popen.kill()
+
 
     def save(self):
         """Pickle TxnGraph. Save the graph_tool Graph object separately."""
@@ -310,7 +421,7 @@ class TxnGraph(object):
             "graph": self.graph
         }
         # Empty the graph_tool objects
-        self.nodes = dict()
+        #self.nodes = dict()
         self.edges = list()
         self.edgeWeights = None
         self.vertexWeights = None
@@ -323,9 +434,9 @@ class TxnGraph(object):
         self.graph = None
 
         # Save the rest of this object to a pickle
-        with open(self.f_pickle, "wb") as output:
-            pickle.dump(self.__dict__, output)
-            output.close()
+        #with open(self.f_pickle, "wb") as output:
+        #    pickle.dump(self.__dict__, output)
+        #    output.close()
 
         # Reload from tmp
         self.nodes = tmp["nodes"]
@@ -409,6 +520,7 @@ class TxnGraph(object):
         # to be the size of the largest node
         pos = random_layout(self.graph, shape=(w, h), dim=2)
 
+        print("start draw")
         # Draw the graph
         graph_draw(self.graph,
             pos=pos,
